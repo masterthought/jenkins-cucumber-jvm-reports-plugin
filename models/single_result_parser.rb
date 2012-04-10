@@ -4,170 +4,170 @@ require 'pp'
 require 'ostruct'
 
 class SingleResultParser
- 
- def initialize(json_result,report_dir,build_number,build_project)
-   @data = JSON.parse(File.read(json_result))
-   @report_dir = report_dir
-   @build_number = build_number 
-   @build_project = build_project
-   @features = features
-   @statistics = statistics
- end
- 
- def generate
-   generate_report
-   generate_overview
-   generate_chart_data
- end
- 
- def generate_report
-   @features.each do |feature|
-     File.open(@report_dir + "/" + feature.file + ".html","w"){|f|
-      f.puts feature_page_head(feature.name)
-      f.puts feature_page_body_result
-      f.puts "<div class=\"#{feature.status}\">" + feature.name + "</div>"
-      f.puts feature.description
-      
-      feature.scenarios.each do |scenario|
-        f.puts scenario.tags
-        f.puts "<div class=\"#{scenario.status}\">" + scenario.name + "</div>"
-        scenario.steps.each do |step|
-          
-          if step.status == "failed"
-           f.puts "<div class=\"#{step.status}\">" + step.name + "<div class=\"step-error-message\"><pre>#{step.error_message}</pre></div></div>"
-          else
-            f.puts "<div class=\"#{step.status}\">" + step.name + "</div>"
+
+  def initialize(json_result, report_dir, build_number, build_project)
+    @data = JSON.parse(File.read(json_result))
+    @report_dir = report_dir
+    @build_number = build_number
+    @build_project = build_project
+    @features = features
+    @statistics = statistics
+  end
+
+  def generate
+    generate_report
+    generate_overview
+    generate_chart_data
+  end
+
+  def generate_report
+    @features.each do |feature|
+      File.open(@report_dir + "/" + feature.file + ".html", "w") { |f|
+        f.puts feature_page_head(feature.name)
+        f.puts feature_page_body_result
+        f.puts "<div class=\"#{feature.status}\">" + feature.name + "</div>"
+        f.puts feature.description
+
+        feature.scenarios.each do |scenario|
+          f.puts scenario.tags
+          f.puts "<div class=\"#{scenario.status}\">" + scenario.name + "</div>"
+          scenario.steps.each do |step|
+
+            if step.status == "failed"
+              f.puts "<div class=\"#{step.status}\">" + step.name + "<div class=\"step-error-message\"><pre>#{step.error_message}</pre></div></div>"
+            else
+              f.puts "<div class=\"#{step.status}\">" + step.name + "</div>"
+            end
+
           end
-          
         end
-      end  
-      f.puts feature_page_body_stats(feature)   
-     }
-   end
- end
-
- def generate_overview 
-   File.open(@report_dir + "/" + "feature-overview.html","w"){|f|
-       f.puts feature_overview_page_head
-       f.puts feature_overview_page_body
-       f.puts feature_overview_page_foot
-     }
- end
- 
- def generate_chart_data
-    File.open(@report_dir + "/" + "feature-overview.xml","w"){|f|
-        f.puts chart_data
+        f.puts feature_page_body_stats(feature)
       }
- end
- 
- def features
-   features = []
-   @data.each do |feature|
-     
-     scenarios = []
-     feature["elements"].each do |scenario|
-       
-       steps = []
-       scenario["steps"].each do |step|
-          steps << OpenStruct.new(:name => step_name(step["keyword"],step["name"]), :status => status(step["result"]), :error_message => error_message(step["result"]))
-       end
-       scenarios << OpenStruct.new(:name => scenario_name(scenario["keyword"],scenario["name"]), :status => scenario_status(steps), :steps => steps, :tags => tags(scenario["tags"]))
-     end
-     
-     features << OpenStruct.new(:name => feature_name(feature["name"]), :file => feature["uri"].gsub("/","-"), :description => feature_description(feature["description"]), :scenarios => scenarios, :status => feature_status(scenarios))
-   end
-   features
- end
-  
- private 
- 
- def feature_name(feature)
-   item_exists?(feature) ? "<div class=\"feature-line\"><span class=\"feature-keyword\">Feature:</span> #{feature}</div>" : ""
- end
- 
- def feature_description(description)
-  result = ""
-  if item_exists?(description)
-    content = description.sub(/^As an/,"<span class=\"feature-role\">As an</span>")
-    content = content.sub(/^I want to/,"<span class=\"feature-action\">I want to</span>")
-    content = content.sub(/^So that/,"<span class=\"feature-value\">So that</span>")
-    content = content.gsub("\n","<br/>")
-    result = "<div class=\"feature-description\">#{content}</div>" 
+    end
   end
-  result
- end
- 
- def tags(tags)
-   result = "<div class=\"feature-tags\"></div>"
-   if item_exists?(tags)
-     tags = tags.collect{|tag| tag["name"]}.join(",") 
-     result = "<div class=\"feature-tags\">#{tags}</div>"
-   end
-   result
- end
- 
- def scenario_name(keyword,scenario_name)
-   content_string = []
-   content_string << "<span class=\"scenario-keyword\">#{keyword}: </span>" if item_exists?(keyword)
-   content_string << "<span class=\"scenario-name\">#{scenario_name}</span>" if item_exists?(scenario_name) 
-   item_exists?(content_string) ? content_string.join("").to_s  : "" 
- end
-  
- def step_name(keyword,step_name)
-  result = ""
-  if item_exists?(keyword) and item_exists?(step_name) 
-    result =  "<span class=\"step-keyword\">#{keyword}</span><span class=\"step-name\">#{step_name}</span>"
-  end
-  result
- end
- 
- def scenario_status(steps)
-   steps.collect{|s| s.status }.include?("failed") ? "failed" : "passed"
- end
- 
- def feature_status(scenarios)
-  scenarios.collect{|s| s.status}.include?("failed") ? "failed" : "passed"
- end
- 
- def status(item)
-   item["status"].to_s
- end
- 
- def error_message(item)
-  item["error_message"].to_s
- end
- 
- def item_exists?(item)
-   !(item.nil? or item.empty?) 
- end
- 
- def statistics
-   total_features =  @features.size
-   total_scenarios = @features.collect{|f| f.scenarios.size}.inject{|sum,x| sum + x }
-   total_steps = @features.collect{|f| f.scenarios.collect{|s| s.steps.size}}.flatten.inject{|sum,x| sum + x }
-   total_passed = @features.collect{|f| f.scenarios.collect{|s| step_size(s.steps,"passed")}}.flatten.inject{|sum,x| sum + x }
-   total_failed = @features.collect{|f| f.scenarios.collect{|s| step_size(s.steps,"failed")}}.flatten.inject{|sum,x| sum + x }
-   total_skipped = @features.collect{|f| f.scenarios.collect{|s| step_size(s.steps,"skipped")}}.flatten.inject{|sum,x| sum + x }
-   totals = OpenStruct.new(:features => total_features, :scenarios => total_scenarios, :steps => total_steps, :passed => total_passed, :failed => total_failed, :skipped => total_skipped)
-   
-   features = []
-   @features.each do |feature|
-     steps = feature.scenarios.collect{|sc| sc.steps.size}.inject{|sum,x| sum + x }
-     passed = feature.scenarios.collect{|s| step_size(s.steps,"passed")}.inject{|sum,x| sum + x }
-     failed = feature.scenarios.collect{|s| step_size(s.steps,"failed")}.inject{|sum,x| sum + x }
-     skipped = feature.scenarios.collect{|s| step_size(s.steps,"skipped")}.inject{|sum,x| sum + x }     
-     features << OpenStruct.new(:name => feature.name, :scenarios => feature.scenarios.size, :steps => steps, :passed => passed, :failed => failed, :skipped => skipped, :status => feature.status, :file => feature.file)
-   end
-   
-   OpenStruct.new(:totals => totals, :features => features) 
- end
- 
- def step_size(steps,status)
-   steps.collect{|s| s if s.status == status}.compact.size
- end
 
-def stats_totals_table
-  head=<<-EOF
+  def generate_overview
+    File.open(@report_dir + "/" + "feature-overview.html", "w") { |f|
+      f.puts feature_overview_page_head
+      f.puts feature_overview_page_body
+      f.puts feature_overview_page_foot
+    }
+  end
+
+  def generate_chart_data
+    File.open(@report_dir + "/" + "feature-overview.xml", "w") { |f|
+      f.puts chart_data
+    }
+  end
+
+  def features
+    features = []
+    @data.each do |feature|
+
+      scenarios = []
+      feature["elements"].each do |scenario|
+
+        steps = []
+        scenario["steps"].each do |step|
+          steps << OpenStruct.new(:name => step_name(step["keyword"], step["name"]), :status => status(step["result"]), :error_message => error_message(step["result"]))
+        end
+        scenarios << OpenStruct.new(:name => scenario_name(scenario["keyword"], scenario["name"]), :status => scenario_status(steps), :steps => steps, :tags => tags(scenario["tags"]))
+      end
+
+      features << OpenStruct.new(:name => feature_name(feature["name"]), :file => feature["uri"].gsub("/", "-"), :description => feature_description(feature["description"]), :scenarios => scenarios, :status => feature_status(scenarios))
+    end
+    features
+  end
+
+  private
+
+  def feature_name(feature)
+    item_exists?(feature) ? "<div class=\"feature-line\"><span class=\"feature-keyword\">Feature:</span> #{feature}</div>" : ""
+  end
+
+  def feature_description(description)
+    result = ""
+    if item_exists?(description)
+      content = description.sub(/^As an/, "<span class=\"feature-role\">As an</span>")
+      content = content.sub(/^I want to/, "<span class=\"feature-action\">I want to</span>")
+      content = content.sub(/^So that/, "<span class=\"feature-value\">So that</span>")
+      content = content.gsub("\n", "<br/>")
+      result = "<div class=\"feature-description\">#{content}</div>"
+    end
+    result
+  end
+
+  def tags(tags)
+    result = "<div class=\"feature-tags\"></div>"
+    if item_exists?(tags)
+      tags = tags.collect { |tag| tag["name"] }.join(",")
+      result = "<div class=\"feature-tags\">#{tags}</div>"
+    end
+    result
+  end
+
+  def scenario_name(keyword, scenario_name)
+    content_string = []
+    content_string << "<span class=\"scenario-keyword\">#{keyword}: </span>" if item_exists?(keyword)
+    content_string << "<span class=\"scenario-name\">#{scenario_name}</span>" if item_exists?(scenario_name)
+    item_exists?(content_string) ? content_string.join("").to_s : ""
+  end
+
+  def step_name(keyword, step_name)
+    result = ""
+    if item_exists?(keyword) and item_exists?(step_name)
+      result = "<span class=\"step-keyword\">#{keyword}</span><span class=\"step-name\">#{step_name}</span>"
+    end
+    result
+  end
+
+  def scenario_status(steps)
+    steps.collect { |s| s.status }.include?("failed") ? "failed" : "passed"
+  end
+
+  def feature_status(scenarios)
+    scenarios.collect { |s| s.status }.include?("failed") ? "failed" : "passed"
+  end
+
+  def status(item)
+    item["status"].to_s
+  end
+
+  def error_message(item)
+    item["error_message"].to_s
+  end
+
+  def item_exists?(item)
+    !(item.nil? or item.empty?)
+  end
+
+  def statistics
+    total_features = @features.size
+    total_scenarios = @features.collect { |f| f.scenarios.size }.inject { |sum, x| sum + x }
+    total_steps = @features.collect { |f| f.scenarios.collect { |s| s.steps.size } }.flatten.inject { |sum, x| sum + x }
+    total_passed = @features.collect { |f| f.scenarios.collect { |s| step_size(s.steps, "passed") } }.flatten.inject { |sum, x| sum + x }
+    total_failed = @features.collect { |f| f.scenarios.collect { |s| step_size(s.steps, "failed") } }.flatten.inject { |sum, x| sum + x }
+    total_skipped = @features.collect { |f| f.scenarios.collect { |s| step_size(s.steps, "skipped") } }.flatten.inject { |sum, x| sum + x }
+    totals = OpenStruct.new(:features => total_features, :scenarios => total_scenarios, :steps => total_steps, :passed => total_passed, :failed => total_failed, :skipped => total_skipped)
+
+    features = []
+    @features.each do |feature|
+      steps = feature.scenarios.collect { |sc| sc.steps.size }.inject { |sum, x| sum + x }
+      passed = feature.scenarios.collect { |s| step_size(s.steps, "passed") }.inject { |sum, x| sum + x }
+      failed = feature.scenarios.collect { |s| step_size(s.steps, "failed") }.inject { |sum, x| sum + x }
+      skipped = feature.scenarios.collect { |s| step_size(s.steps, "skipped") }.inject { |sum, x| sum + x }
+      features << OpenStruct.new(:name => feature.name, :scenarios => feature.scenarios.size, :steps => steps, :passed => passed, :failed => failed, :skipped => skipped, :status => feature.status, :file => feature.file)
+    end
+
+    OpenStruct.new(:totals => totals, :features => features)
+  end
+
+  def step_size(steps, status)
+    steps.collect { |s| s if s.status == status }.compact.size
+  end
+
+  def stats_totals_table
+    head=<<-EOF
   <br/>
   <h2>Feature Statistics</h2>
   <table class="stats-table">
@@ -180,38 +180,38 @@ def stats_totals_table
   <th>Skipped</th>
   <th>Status</th>
   </tr>  
-EOF
-content = []
-@statistics.features.each do |feature|
-   content << "<tr>"
-   content << "<td><a href=\"feature?build_project=#{@build_project}&build_number=#{@build_number}&feature=#{feature.file+'.html'}\">#{feature.name}</a></td>"
-   content << "<td>#{feature.scenarios}</td>"
-   content << "<td>#{feature.steps}</td>"
-   content << "<td>#{feature.passed}</td>"
-   content << "<td>#{feature.failed}</td>"
-   content << "<td>#{feature.skipped}</td>"
-   status = feature.status == "passed" ? "#C5D88A" : "#D88A8A" 
-   content << "<td style=\"background-color:#{status};\">#{feature.status}</td>"
-   content << "<tr>"
-end
+    EOF
+    content = []
+    @statistics.features.each do |feature|
+      content << "<tr>"
+      content << "<td><a href=\"feature?build_project=#{@build_project}&build_number=#{@build_number}&feature=#{feature.file+'.html'}\">#{feature.name}</a></td>"
+      content << "<td>#{feature.scenarios}</td>"
+      content << "<td>#{feature.steps}</td>"
+      content << "<td>#{feature.passed}</td>"
+      content << "<td>#{feature.failed}</td>"
+      content << "<td>#{feature.skipped}</td>"
+      status = feature.status == "passed" ? "#C5D88A" : "#D88A8A"
+      content << "<td style=\"background-color:#{status};\">#{feature.status}</td>"
+      content << "<tr>"
+    end
 
-   totals = []
-   totals << "<tr>"
-   totals << "<td style=\"background-color:lightgray;font-weight:bold;\">#{@statistics.totals.features}</td>"
-   totals << "<td style=\"background-color:lightgray;font-weight:bold;\">#{@statistics.totals.scenarios}</td>"
-   totals << "<td style=\"background-color:lightgray;font-weight:bold;\">#{@statistics.totals.steps}</td>"
-   totals << "<td style=\"background-color:lightgray;font-weight:bold;\">#{@statistics.totals.passed}</td>"
-   totals << "<td style=\"background-color:lightgray;font-weight:bold;\">#{@statistics.totals.failed}</td>"
-   totals << "<td style=\"background-color:lightgray;font-weight:bold;\">#{@statistics.totals.skipped}</td>"
-   totals << "<td style=\"background-color:lightgray;font-weight:bold;\">Totals</td>"
-   totals << "</tr>"
+    totals = []
+    totals << "<tr>"
+    totals << "<td style=\"background-color:lightgray;font-weight:bold;\">#{@statistics.totals.features}</td>"
+    totals << "<td style=\"background-color:lightgray;font-weight:bold;\">#{@statistics.totals.scenarios}</td>"
+    totals << "<td style=\"background-color:lightgray;font-weight:bold;\">#{@statistics.totals.steps}</td>"
+    totals << "<td style=\"background-color:lightgray;font-weight:bold;\">#{@statistics.totals.passed}</td>"
+    totals << "<td style=\"background-color:lightgray;font-weight:bold;\">#{@statistics.totals.failed}</td>"
+    totals << "<td style=\"background-color:lightgray;font-weight:bold;\">#{@statistics.totals.skipped}</td>"
+    totals << "<td style=\"background-color:lightgray;font-weight:bold;\">Totals</td>"
+    totals << "</tr>"
 
-foot="</table>"
-head+content.join("\n").to_s+totals.join("\n").to_s+foot
-end
- 
- def stats_table_header
-   table=<<-EOF
+    foot="</table>"
+    head+content.join("\n").to_s+totals.join("\n").to_s+foot
+  end
+
+  def stats_table_header
+    table=<<-EOF
 <br/>
 <h2>Feature Statistics</h2>
 <table class="stats-table">
@@ -224,44 +224,44 @@ end
 <th>Skipped</th>
 <th>Status</th>
 </tr>  
-EOF
- end
- 
- def stats_table_content(feature)
-   content = []
-   content << "<tr>"
-   content << "<td><a href=\"feature?build_project=#{@build_project}&build_number=#{@build_number}&feature=#{feature.file+'.html'}\">#{feature.name}</a></td>"
-   content << "<td>#{feature.scenarios.size}</td>"
-  
-  steps = []
-  passed = []  
-  failed = []
-  skipped = []
-  feature.scenarios.each do |scenario|
-    scenario.steps.each do |step|
-      steps << step
-      passed << step if step.status == "passed"
-      failed << step if step.status == "failed"
-      skipped << step if step.status == "skipped"
-    end
-    
+    EOF
   end
-  
-  content << "<td>#{steps.size}</td>"
-  content << "<td>#{passed.size}</td>"
-  content << "<td>#{failed.size}</td>"
-  content << "<td>#{skipped.size}</td>"
-  status = feature.status == "passed" ? "#C5D88A" : "#D88A8A" 
-  content << "<td style=\"background-color:#{status};\">#{feature.status}</td></tr>"
-  content.join("\n")
- end
- 
- def stats_table_footer
-  "</table>"
- end
- 
- def css
-  css=<<-EOF
+
+  def stats_table_content(feature)
+    content = []
+    content << "<tr>"
+    content << "<td><a href=\"feature?build_project=#{@build_project}&build_number=#{@build_number}&feature=#{feature.file+'.html'}\">#{feature.name}</a></td>"
+    content << "<td>#{feature.scenarios.size}</td>"
+
+    steps = []
+    passed = []
+    failed = []
+    skipped = []
+    feature.scenarios.each do |scenario|
+      scenario.steps.each do |step|
+        steps << step
+        passed << step if step.status == "passed"
+        failed << step if step.status == "failed"
+        skipped << step if step.status == "skipped"
+      end
+
+    end
+
+    content << "<td>#{steps.size}</td>"
+    content << "<td>#{passed.size}</td>"
+    content << "<td>#{failed.size}</td>"
+    content << "<td>#{skipped.size}</td>"
+    status = feature.status == "passed" ? "#C5D88A" : "#D88A8A"
+    content << "<td style=\"background-color:#{status};\">#{feature.status}</td></tr>"
+    content.join("\n")
+  end
+
+  def stats_table_footer
+    "</table>"
+  end
+
+  def css
+    css=<<-EOF
 <style>
 .feature-keyword{font-weight:bold;}
 .feature-description{padding-left:15px;font-style:italic;background-color:beige;}
@@ -306,11 +306,11 @@ table.stats-table td {
 	-moz-border-radius: ;
 }
 </style>
-EOF
- end
+    EOF
+  end
 
-def show_chart
-html=<<-EOF
+  def show_chart
+    html=<<-EOF
 <script language="JavaScript" type="text/javascript">
 <!--
 if (AC_FL_RunContent == 0 || DetectFlashVer == 0) {
@@ -328,7 +328,7 @@ if (AC_FL_RunContent == 0 || DetectFlashVer == 0) {
 			'wmode', 'opaque',
 			'movie', 'charts/charts',
 			'src', 'charts/charts',
-			'FlashVars', "library_path=charts/charts_library&xml_data=#{chart_data.gsub("\n","").gsub(/>\s+</,"><")}", 
+			'FlashVars', "library_path=charts/charts_library&xml_data=#{chart_data.gsub("\n", "").gsub(/>\s+</, "><")}",
 			'id', 'my_chart',
 			'name', 'my_chart',
 			'menu', 'true',
@@ -351,11 +351,11 @@ if (AC_FL_RunContent == 0 || DetectFlashVer == 0) {
 <noscript>
 	<P>This content requires JavaScript.</P>
 </noscript>
-EOF
-end 
+    EOF
+  end
 
-def chart_data
-html=<<-EOF
+  def chart_data
+    html=<<-EOF
 <chart>
   <license>JTAMVPF7P2O.H4X5CWK-2XOI1X0-7L</license> 
 	<chart_data>
@@ -409,11 +409,11 @@ html=<<-EOF
 	<series transfer='true' />
 
 </chart>
-EOF
-end
+    EOF
+  end
 
-def feature_page_head(feature_name)
-  html=<<-EOF
+  def feature_page_head(feature_name)
+    html=<<-EOF
   <!DOCTYPE html>
   <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
@@ -437,11 +437,11 @@ def feature_page_head(feature_name)
   	<link rel="shortcut icon" href="blue/favicon.ico" />
   #{css}
   </head>
-  EOF
-end
+    EOF
+  end
 
-def feature_page_body_result
-  html=<<-EOF
+  def feature_page_body_result
+    html=<<-EOF
   <body id="top">
   	<div id="fullwidth_header">
   		<div class="container_12">
@@ -466,11 +466,11 @@ def feature_page_body_result
   	<div class="container_12">
   		<div class="grid_12">
   		<div style="color:black;">
-  		EOF
-end
+    EOF
+  end
 
-def feature_page_body_stats(feature)
-  html=<<-EOF
+  def feature_page_body_stats(feature)
+    html=<<-EOF
   	</div>
   	<br/>
   		<div class="grid_12 hr"></div>
@@ -493,11 +493,11 @@ def feature_page_body_stats(feature)
   	</div>
   	<div class="clear"></div>
   </body>
-  EOF
-end
+    EOF
+  end
 
-def feature_overview_page_head
-html=<<-EOF
+  def feature_overview_page_head
+    html=<<-EOF
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -521,11 +521,11 @@ var requiredRevision = 45;
 	<link rel="shortcut icon" href="blue/favicon.ico" />
 #{css}
 </head>
-EOF
-end
+    EOF
+  end
 
-def feature_overview_page_body
-html=<<-EOF
+  def feature_overview_page_body
+    html=<<-EOF
 <body id="top">
 	<div id="fullwidth_header">
 		<div class="container_12">
@@ -568,13 +568,13 @@ html=<<-EOF
 	</div>
 	<div class="clear"></div>
 </body>
-EOF
-end
+    EOF
+  end
 
-def feature_overview_page_foot
-"</html>"
-end
-  
+  def feature_overview_page_foot
+    "</html>"
+  end
+
 end
 
 
