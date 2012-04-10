@@ -78,11 +78,12 @@ class CucumberReportAction < Sinatra::Base
 
   def initialize(widget)
     super
-    @root_dir = Dir.pwd
     @widget = widget
   end
 
-  set :public_folder, "#{Dir.pwd}/views/reports"
+  # The first line works for development but not in the latest version of jenkins - so switch these around to the shorter one when running in dev as jpi server
+  # set :public_folder, "#{Dir.pwd}/views/reports"
+  set :public_folder, "#{Java.jenkins.model.Jenkins.getInstance.root_dir.absolute_path + '/plugins/cucumber-jvm-reports/WEB-INF/classes/reports'}"
 
   get '/overview' do
     # project = params[:project]
