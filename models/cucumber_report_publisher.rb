@@ -59,22 +59,22 @@ end
         @action.call(env)
       end
     
-      # def view_names
-      #        names = []
-      #        @jenkins.views.each { |view|
-      #          names << view.view_name
-      #        }
-      #        names
-      #      end
-      #    
-      #      def view_name
-      #        unless @config[VIEW]
-      #          @config[VIEW] = @jenkins.primary_view.view_name
-      #          @config.save
-      #        end
-      #        @config[VIEW]
-      #      end
-      #  
+      def view_names
+                  names = []
+                  @jenkins.views.each { |view|
+                    names << view.view_name
+                  }
+                  names
+                end
+              
+                def view_name
+                  unless @config[VIEW]
+                    @config[VIEW] = @jenkins.primary_view.view_name
+                    @config.save
+                  end
+                  @config[VIEW]
+                end
+            
   end
   
   class CucumberReportAction < Sinatra::Base
