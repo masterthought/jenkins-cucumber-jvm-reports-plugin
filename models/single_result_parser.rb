@@ -356,8 +356,7 @@ if (AC_FL_RunContent == 0 || DetectFlashVer == 0) {
 
   def chart_data
     html=<<-EOF
-<chart>
-  <license>JTAMVPF7P2O.H4X5CWK-2XOI1X0-7L</license> 
+<chart> 
 	<chart_data>
 		<row>
 			<null/>
