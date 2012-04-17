@@ -2,7 +2,7 @@
 
 Please be aware that this ruby plugin is experimental and may be unstable on jenkins. Also it requires the latest version of jenkins as well as having the ruby-runtime plugin installed. 
 
-At the moment I recommend using the [java version of this plugin:](git@github.com:masterthought/jenkins-cucumber-jvm-reports-plugin.git)
+At the moment I recommend using the [java version of this plugin](https://github.com/masterthought/jenkins-cucumber-jvm-reports-plugin-java)
 
 # Publish pretty [cucumber-jvm](https://github.com/cucumber/cucumber-jvm) reports on [Jenkins](http://jenkins-ci.org/)
 
