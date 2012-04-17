@@ -4,7 +4,7 @@ Jenkins::Plugin::Specification.new do |plugin|
   plugin.version = '0.0.1'
   plugin.description = 'Publish Cucumber JVM Html reports'
 
-  plugin.url = 'https://wiki.jenkins-ci.org/display/JENKINS/git-notes+Plugin'
+  plugin.url = 'https://github.com/masterthought/jenkins-cucumber-jvm-reports-plugin'
 
   plugin.developed_by "kingsleyh", "Kingsley Hendrickse <kingsley.hendrickse@gmail.com>"
 
